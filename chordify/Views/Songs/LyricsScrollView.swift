@@ -137,7 +137,6 @@ import Observation
     // MARK: - 手動スクロール（縦）
 
     func manualScroll(deltaY: CGFloat) {
-        if isPlaying { pause() }
         isDragging = true
         scrollOffset = max(0, min(maxScrollOffset, scrollOffset + deltaY))
     }
@@ -156,7 +155,6 @@ import Observation
     // MARK: - 手動スクロール（横・テレプロンプター）
 
     func manualScrollH(delta: CGFloat) {
-        if isPlaying { pause() }
         isDragging = true
         scrollOffset = max(0, min(maxScrollOffsetH, scrollOffset + delta))
     }
