@@ -215,23 +215,24 @@ private struct SectionRow: View {
     @State private var showActions = false
     @State private var actionChordName = ""
     @State private var showEffectorMemo = false
+    @State private var performanceTappedChord: ChordDiagram? = nil
     @State private var draggingID: UUID? = nil
     @State private var dragDeltaX: CGFloat = 0
     @State private var actionShowDiagram: Bool = true
     @State private var actionShowName: Bool = true
     @State private var actionHasName: Bool = false
 
-    private let diagramW: CGFloat = 76
-    private let diagramH: CGFloat = 42
+    private let diagramW: CGFloat = 64
+    private let diagramH: CGFloat = 36
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 2) {
                 chordArea
                 lyricsView
             }
             .padding(.horizontal, 20)
-            .padding(.vertical, 10)
+            .padding(.vertical, 14)
 
             if isEditing {
                 Button(action: onDelete) {
@@ -245,7 +246,7 @@ private struct SectionRow: View {
         }
         .background(isEditing ? Color(.systemBackground) : .clear)
         .overlay(alignment: .bottom) {
-            if isEditing { Divider() }
+            Divider().opacity(isEditing ? 1.0 : 0.18)
         }
         .sheet(isPresented: $showPicker) {
             ChordPickerSheet(song: song, selectedID: nil) { id in
@@ -285,6 +286,9 @@ private struct SectionRow: View {
                 EffectorMemoSheet(memo: memo, isEditing: isEditing)
             }
         }
+        .sheet(item: $performanceTappedChord) { chord in
+            ChordPreviewSheet(chord: chord)
+        }
     }
 
     // MARK: コードエリア ヘルパー
@@ -308,16 +312,21 @@ private struct SectionRow: View {
         }
     }
 
+    /// ダイアグラム+コード名を収めるのに必要な高さ
+    private var diagramWithNameH: CGFloat { diagramH + 20 }  // 36+20=56
+    /// ダイアグラムのみの高さ
+    private var diagramOnlyH: CGFloat    { diagramH + 8  }   // 36+8=44
+
     /// パフォーマンスモードでのコードエリアの高さ
     private var performanceChordAreaHeight: CGFloat {
         guard !section.chordPlacements.isEmpty else { return 0 }
         switch song.chordDisplayMode {
         case .hidden:      return 0
-        case .nameOnly:    return 20
-        case .diagramOnly: return diagramH + 16
+        case .nameOnly:    return 22
+        case .diagramOnly: return diagramOnlyH
         case .custom:
             let anyDiag = section.chordPlacements.contains { $0.showDiagram }
-            return anyDiag ? diagramH + 16 : 20
+            return anyDiag ? diagramWithNameH : 22
         }
     }
 
@@ -326,7 +335,7 @@ private struct SectionRow: View {
     @ViewBuilder
     private var chordArea: some View {
         let hasDiagrams = !section.chordPlacements.isEmpty
-        let frameH = isEditing ? (hasDiagrams ? diagramH + 16 : 24) : performanceChordAreaHeight
+        let frameH = isEditing ? (hasDiagrams ? diagramWithNameH : 26) : performanceChordAreaHeight
 
         if frameH > 0 || isEditing {
             GeometryReader { geo in
@@ -363,9 +372,11 @@ private struct SectionRow: View {
                         let showNameText = isEditing
                             ? (placement.showName && ch?.name.isEmpty == false)
                             : effectiveShowName(placement, chord: ch)
-                        let yCtr: CGFloat = showDiag ? (diagramH + 14) / 2 : 10
+                        let yCtr: CGFloat = showDiag
+                            ? (showNameText ? diagramWithNameH / 2 : diagramOnlyH / 2)
+                            : 11
 
-                        VStack(spacing: 3) {
+                        VStack(spacing: 1) {
                             if let ch {
                                 if showDiag {
                                     FretBoardView(fingering: ch.fingering.effectiveFingering)
@@ -374,8 +385,8 @@ private struct SectionRow: View {
                                 }
                                 if showNameText {
                                     Text(ch.name)
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundStyle(.tint)
+                                        .font(.system(size: 13, weight: .bold))
+                                        .foregroundStyle(Color.primary)
                                         .lineLimit(1)
                                         .opacity(isEditing && !placement.showName ? 0.3 : 1.0)
                                 }
@@ -407,13 +418,16 @@ private struct SectionRow: View {
                                 }
                         )
                         .onTapGesture {
-                            guard isEditing else { return }
-                            tappedPlacementID = placement.id
-                            actionChordName = ch?.name.isEmpty == false ? ch!.name : "コード"
-                            actionShowDiagram = placement.showDiagram
-                            actionShowName = placement.showName
-                            actionHasName = ch?.name.isEmpty == false
-                            showActions = true
+                            if isEditing {
+                                tappedPlacementID = placement.id
+                                actionChordName = ch?.name.isEmpty == false ? ch!.name : "コード"
+                                actionShowDiagram = placement.showDiagram
+                                actionShowName = placement.showName
+                                actionHasName = ch?.name.isEmpty == false
+                                showActions = true
+                            } else if let ch {
+                                performanceTappedChord = ch
+                            }
                         }
                     }
 
@@ -424,7 +438,7 @@ private struct SectionRow: View {
                                 .foregroundStyle(.orange)
                                 .font(.body)
                         }
-                        .position(x: geo.size.width - 24, y: (diagramH + 14) / 2)
+                        .position(x: geo.size.width - 24, y: diagramOnlyH / 2)
                     }
                 }
             }
@@ -533,5 +547,39 @@ private struct SongSettingsSheet: View {
             TextField("自由にメモを入力", text: $song.memo, axis: .vertical)
                 .lineLimit(4...8)
         }
+    }
+}
+
+// MARK: - ChordPreviewSheet
+
+private struct ChordPreviewSheet: View {
+    let chord: ChordDiagram
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                FretBoardView(fingering: chord.fingering.effectiveFingering)
+                    .frame(width: 220, height: 128)
+                    .padding(.top, 8)
+
+                if !chord.name.isEmpty {
+                    Text(chord.name)
+                        .font(.title2.bold())
+                        .foregroundStyle(.primary)
+                }
+
+                Spacer()
+            }
+            .padding(.horizontal, 40)
+            .navigationTitle(chord.name.isEmpty ? "コード" : chord.name)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("閉じる") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium])
     }
 }

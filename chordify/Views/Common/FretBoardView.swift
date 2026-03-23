@@ -9,14 +9,18 @@ struct FretBoardView: View {
         Canvas { context, size in
             draw(context: context, size: size)
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 3)
+                .stroke(Color.primary.opacity(0.15), lineWidth: 0.8)
+        )
     }
 
     private func draw(context: GraphicsContext, size: CGSize) {
         let fretCount = fingering.fretCount
 
-        let xoWidth: CGFloat    = size.width * 0.16
-        let topPad: CGFloat     = size.height * 0.07
-        let bottomPad: CGFloat  = size.height * 0.12  // フレット番号用に少し広め
+        let xoWidth: CGFloat    = size.width * 0.13
+        let topPad: CGFloat     = size.height * 0.05
+        let bottomPad: CGFloat  = size.height * 0.07
 
         let nutX: CGFloat       = xoWidth
         let gridWidth: CGFloat  = size.width - nutX
@@ -32,18 +36,25 @@ struct FretBoardView: View {
         func sy(_ si: Int) -> CGFloat { gridTop + CGFloat(5 - si) * stringSpacing }
         func fx(_ fi: Int) -> CGFloat { nutX + CGFloat(fi) * fretCellWidth }
 
+        // 背景（薄いグレー）
+        let bgRect = CGRect(x: nutX, y: gridTop, width: gridWidth, height: gridHeight)
+        context.fill(
+            Path(roundedRect: bgRect, cornerRadius: 1.5),
+            with: .color(.primary.opacity(0.04))
+        )
+
         // ナット
         context.stroke(Path { p in
             p.move(to: CGPoint(x: nutX, y: gridTop))
             p.addLine(to: CGPoint(x: nutX, y: gridBottom))
-        }, with: fg, lineWidth: fingering.startFret == 1 ? 4 : 1.5)
+        }, with: fg, lineWidth: fingering.startFret == 1 ? 3 : 1.2)
 
         if fingering.startFret > 1 {
             context.draw(
                 Text("\(fingering.startFret)fr")
-                    .font(.system(size: max(7, size.width * 0.08)))
+                    .font(.system(size: max(7, size.width * 0.085), weight: .medium))
                     .foregroundStyle(Color.secondary),
-                at: CGPoint(x: nutX + 2, y: gridBottom + bottomPad * 0.55),
+                at: CGPoint(x: nutX + 2, y: gridBottom + bottomPad * 0.6),
                 anchor: .leading
             )
         }
@@ -53,7 +64,7 @@ struct FretBoardView: View {
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: fx(fi), y: gridTop))
                 p.addLine(to: CGPoint(x: fx(fi), y: gridBottom))
-            }, with: fg, lineWidth: 0.8)
+            }, with: fg, lineWidth: 0.7)
         }
 
         // 弦線（水平）低音弦ほど太く
@@ -61,13 +72,13 @@ struct FretBoardView: View {
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: nutX, y: sy(si)))
                 p.addLine(to: CGPoint(x: size.width, y: sy(si)))
-            }, with: fg, lineWidth: 0.5 + CGFloat(5 - si) * 0.2)
+            }, with: fg, lineWidth: 0.5 + CGFloat(5 - si) * 0.18)
         }
 
         // X / O / ドット
         let xoCX: CGFloat = xoWidth * 0.5
-        let indR: CGFloat = min(xoWidth * 0.28, stringSpacing * 0.34)
-        let dotR: CGFloat = min(fretCellWidth * 0.30, stringSpacing * 0.38)
+        let indR: CGFloat = min(xoWidth * 0.34, stringSpacing * 0.38)
+        let dotR: CGFloat = min(fretCellWidth * 0.36, stringSpacing * 0.44)
 
         for si in 0..<6 {
             let sf = fingering.strings[si]
@@ -80,7 +91,7 @@ struct FretBoardView: View {
                     p.addLine(to: CGPoint(x: xoCX + r, y: y + r))
                     p.move(to: CGPoint(x: xoCX + r, y: y - r))
                     p.addLine(to: CGPoint(x: xoCX - r, y: y + r))
-                }, with: fg, lineWidth: 1.5)
+                }, with: fg, lineWidth: 1.4)
 
             } else if sf.isOpen {
                 context.stroke(
@@ -91,7 +102,7 @@ struct FretBoardView: View {
             } else if sf.isPressed {
                 let rel = sf.fret - fingering.startFret + 1
                 if (1...fretCount).contains(rel) {
-                    let dotX = fx(rel)
+                    let dotX = fx(rel) - fretCellWidth * 0.5
                     context.fill(
                         Path(ellipseIn: CGRect(x: dotX - dotR, y: y - dotR,
                                               width: dotR * 2, height: dotR * 2)),

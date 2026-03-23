@@ -92,6 +92,7 @@ struct ChordFingering: Codable, Equatable {
 
     /// 押弦フレットの実際の範囲だけを表示するコンパクトなコピー。
     /// 開放弦・ミュートはそのまま保持し、表示フレット数を最小化する。
+    /// ローポジション（最低押弦フレット ≤ 4）は必ずナット（1フレット）から表示する。
     var effectiveFingering: ChordFingering {
         let pressedFrets = strings.compactMap { $0.isPressed ? $0.fret : nil }
         guard !pressedFrets.isEmpty else {
@@ -100,7 +101,9 @@ struct ChordFingering: Codable, Equatable {
         }
         let minFret = pressedFrets.min()!
         let maxFret = pressedFrets.max()!
-        let count = max(maxFret - minFret + 1, 3)
-        return ChordFingering(strings: strings, startFret: minFret, fretCount: count)
+        // ローポジションはナットから表示。ハイポジションは押弦範囲のみ。
+        let start = minFret <= 4 ? 1 : minFret
+        let count = max(maxFret - start + 1, 3)
+        return ChordFingering(strings: strings, startFret: start, fretCount: count)
     }
 }

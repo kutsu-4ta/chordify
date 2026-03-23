@@ -1,5 +1,5 @@
 import SwiftUI
-import AudioToolbox
+import AVFoundation
 import Observation
 
 // MARK: - ScrollViewModel
@@ -22,12 +22,46 @@ import Observation
     private var scrollTimer: Timer?
     private var clickTimer: Timer?
 
+    private let audioEngine = AVAudioEngine()
+    private let clickPlayer = AVAudioPlayerNode()
+    private var clickBuffer: AVAudioPCMBuffer?
+
     /// タイマー間隔（秒）
     private static let timerInterval: Double = 0.5
 
     init(song: Song) {
         self.song = song
         self.clickEnabled = song.isClickEnabled
+        setupAudioEngine()
+    }
+
+    private func setupAudioEngine() {
+        let format = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 1)!
+        audioEngine.attach(clickPlayer)
+        audioEngine.connect(clickPlayer, to: audioEngine.mainMixerNode, format: format)
+        clickBuffer = makeClickBuffer(format: format)
+        try? audioEngine.start()
+    }
+
+    private func makeClickBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        let sampleRate = format.sampleRate
+        let frameCount = AVAudioFrameCount(sampleRate * 0.05)  // 50ms
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
+        buffer.frameLength = frameCount
+        let data = buffer.floatChannelData![0]
+        for i in 0..<Int(frameCount) {
+            let t = Double(i) / sampleRate
+            // 880Hz の短いサイン波 + 指数減衰
+            data[i] = Float(sin(2 * .pi * 880 * t) * exp(-t * 80) * 0.9)
+        }
+        return buffer
+    }
+
+    private func playClick() {
+        guard let buffer = clickBuffer else { return }
+        if !audioEngine.isRunning { try? audioEngine.start() }
+        clickPlayer.scheduleBuffer(buffer, at: nil, options: .interrupts)
+        if !clickPlayer.isPlaying { clickPlayer.play() }
     }
 
     var bpm: Int { song.bpm }
@@ -124,9 +158,9 @@ import Observation
     private func startClickTimer() {
         stopClickTimer()
         guard clickInterval > 0 else { return }
-        AudioServicesPlaySystemSound(1104)
-        let t = Timer(timeInterval: clickInterval, repeats: true) { _ in
-            AudioServicesPlaySystemSound(1104)
+        playClick()
+        let t = Timer(timeInterval: clickInterval, repeats: true) { [weak self] _ in
+            self?.playClick()
         }
         RunLoop.main.add(t, forMode: .common)
         clickTimer = t

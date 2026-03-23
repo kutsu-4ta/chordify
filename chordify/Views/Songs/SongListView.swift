@@ -7,6 +7,7 @@ struct SongListView: View {
 
     @State private var showingAddSong = false
     @State private var newSongTitle = ""
+    @State private var showChordBook = false
 
     var body: some View {
         NavigationStack {
@@ -30,7 +31,15 @@ struct SongListView: View {
                 SongDetailView(song: song)
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    EditButton()
+                }
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button {
+                        showChordBook = true
+                    } label: {
+                        Image(systemName: "music.note.list")
+                    }
                     Button {
                         newSongTitle = ""
                         showingAddSong = true
@@ -38,9 +47,9 @@ struct SongListView: View {
                         Image(systemName: "plus")
                     }
                 }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
-                }
+            }
+            .sheet(isPresented: $showChordBook) {
+                ChordBookView()
             }
             .alert("新しい曲を追加", isPresented: $showingAddSong) {
                 TextField("曲のタイトル", text: $newSongTitle)
