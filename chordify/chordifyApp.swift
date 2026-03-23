@@ -1,11 +1,5 @@
-//
-//  chordifyApp.swift
-//  chordify
-//
-//  Created by Masafumi Yamashita on 2026/03/23.
-//
-
 import SwiftUI
+import SwiftData
 
 @main
 struct chordifyApp: App {
@@ -13,5 +7,6 @@ struct chordifyApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [ChordDiagram.self, Song.self, LyricsSection.self, EffectorMemo.self])
     }
 }
