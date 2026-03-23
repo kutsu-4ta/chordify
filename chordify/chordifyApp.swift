@@ -5,6 +5,8 @@ import AVFoundation
 @main
 struct chordifyApp: App {
 
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+
     init() {
         #if os(iOS)
         do {
@@ -24,6 +26,6 @@ struct chordifyApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [ChordDiagram.self, Song.self, LyricsSection.self, EffectorMemo.self])
+        .modelContainer(for: [ChordDiagram.self, Song.self, LyricsSection.self, EffectorMemo.self, StructEvent.self])
     }
 }

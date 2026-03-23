@@ -15,6 +15,24 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
         case .hidden:      return "非表示"
         }
     }
+
+    var next: ChordDisplayMode {
+        switch self {
+        case .custom:      return .diagramOnly
+        case .diagramOnly: return .nameOnly
+        case .nameOnly:    return .hidden
+        case .hidden:      return .custom
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .custom:      return "music.note"
+        case .diagramOnly: return "rectangle.grid.2x2"
+        case .nameOnly:    return "textformat"
+        case .hidden:      return "eye.slash"
+        }
+    }
 }
 
 @Model final class Song {
@@ -33,6 +51,15 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
     /// メモ
     var memo: String
 
+    /// テレプロンプタースクロール速度（pt/秒）
+    var prompterSpeed: Double = 80.0
+
+    /// 任意のステータスラベル（例: 練習中、本番OK）
+    var statusLabel: String = ""
+
+    /// タイムラインマーカー（正規化位置 0.0〜1.0）
+    var teleprompterMarkers: [Double] = []
+
     // 旧フィールド（後方互換のため残存、UI からは非表示）
     var beatsPerSection: Int
     var scrollSpeedOverride: Double?
@@ -42,6 +69,9 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
 
     @Relationship(deleteRule: .cascade, inverse: \ChordDiagram.ownerSong)
     var localChords: [ChordDiagram] = []
+
+    @Relationship(deleteRule: .cascade, inverse: \StructEvent.song)
+    var structEvents: [StructEvent] = []
 
     init(
         title: String,

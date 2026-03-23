@@ -5,6 +5,8 @@ import SwiftData
     @Attribute(.unique) var id: UUID
     var order: Int
     var lyrics: String
+    /// テレプロンプター内に表示するストラクトラベル（例: Aメロ、サビ）
+    var structLabel: String = ""
     var chordPlacements: [ChordPlacement]
     var song: Song?
 

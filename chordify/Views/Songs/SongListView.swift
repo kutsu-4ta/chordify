@@ -8,32 +8,35 @@ struct SongListView: View {
     @State private var showingAddSong = false
     @State private var newSongTitle = ""
     @State private var showChordBook = false
+    @State private var searchText = ""
+    @State private var songToDelete: Song? = nil
+
+    var filteredSongs: [Song] {
+        guard !searchText.isEmpty else { return songs }
+        let q = searchText.lowercased()
+        return songs.filter {
+            $0.title.lowercased().contains(q) ||
+            $0.memo.lowercased().contains(q)
+        }
+    }
 
     var body: some View {
         NavigationStack {
             Group {
                 if songs.isEmpty {
                     emptyState
+                } else if filteredSongs.isEmpty {
+                    noResults
                 } else {
-                    List {
-                        ForEach(songs) { song in
-                            NavigationLink(value: song) {
-                                songRow(song)
-                            }
-                        }
-                        .onDelete(perform: deleteSongs)
-                    }
-                    .listStyle(.plain)
+                    songList
                 }
             }
             .navigationTitle("曲一覧")
             .navigationDestination(for: Song.self) { song in
                 SongDetailView(song: song)
             }
+            .searchable(text: $searchText, prompt: "検索")
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    EditButton()
-                }
                 ToolbarItemGroup(placement: .navigationBarTrailing) {
                     Button {
                         showChordBook = true
@@ -59,37 +62,42 @@ struct SongListView: View {
             } message: {
                 Text("曲のタイトルを入力してください")
             }
+            .confirmationDialog(
+                songToDelete.map { "\"\($0.title)\" を削除しますか？" } ?? "",
+                isPresented: Binding(get: { songToDelete != nil },
+                                     set: { if !$0 { songToDelete = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    if let s = songToDelete { modelContext.delete(s) }
+                    songToDelete = nil
+                }
+                Button("キャンセル", role: .cancel) { songToDelete = nil }
+            }
         }
     }
 
-    private func songRow(_ song: Song) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(song.title)
-                .font(.headline)
-                .foregroundStyle(.primary)
-            HStack(spacing: 6) {
-                infoChip("\(song.bpm) BPM", systemImage: "metronome")
-                infoChip("\(song.sections.count)セクション", systemImage: "text.alignleft")
-                if song.capo > 0 {
-                    infoChip("カポ \(song.capo)", systemImage: "slider.horizontal.3", accent: true)
+    // MARK: - リスト
+
+    private var songList: some View {
+        List {
+            ForEach(filteredSongs) { song in
+                NavigationLink(value: song) {
+                    songRow(song)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button(role: .destructive) {
+                        songToDelete = song
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
                 }
             }
         }
-        .padding(.vertical, 6)
+        .listStyle(.plain)
     }
 
-    private func infoChip(_ text: String, systemImage: String, accent: Bool = false) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: systemImage)
-            Text(text)
-        }
-        .font(.caption)
-        .foregroundStyle(accent ? Color.accentColor : Color.secondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(accent ? Color.accentColor.opacity(0.12) : Color(.secondarySystemBackground))
-        .clipShape(Capsule())
-    }
+    // MARK: - 空状態
 
     private var emptyState: some View {
         VStack(spacing: 20) {
@@ -110,17 +118,70 @@ struct SongListView: View {
         .padding()
     }
 
+    private var noResults: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 40))
+                .foregroundStyle(.quaternary)
+            Text("「\(searchText)」に一致する曲はありません")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+
+    // MARK: - 行
+
+    private func songRow(_ song: Song) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(song.title)
+                .font(.headline)
+                .foregroundStyle(.primary)
+            HStack(spacing: 6) {
+                infoChip("\(song.bpm) BPM", systemImage: "metronome")
+                if song.capo > 0 {
+                    infoChip("カポ \(song.capo)", systemImage: "slider.horizontal.3", accent: true)
+                }
+                if !song.statusLabel.trimmingCharacters(in: .whitespaces).isEmpty {
+                    statusChip(song.statusLabel)
+                }
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func statusChip(_ label: String) -> some View {
+        Text(label)
+            .font(.caption.weight(.medium))
+            .foregroundStyle(Color.accentColor)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.accentColor.opacity(0.12))
+            .clipShape(Capsule())
+    }
+
+    private func infoChip(_ text: String, systemImage: String, accent: Bool = false) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: systemImage)
+            Text(text)
+        }
+        .font(.caption)
+        .foregroundStyle(accent ? Color.accentColor : Color.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(accent ? Color.accentColor.opacity(0.12) : Color(.secondarySystemBackground))
+        .clipShape(Capsule())
+    }
+
+    // MARK: - ヘルパー
+
     private func addSong() {
         let title = newSongTitle.trimmingCharacters(in: .whitespaces)
         guard !title.isEmpty else { return }
         let song = Song(title: title)
         modelContext.insert(song)
-    }
-
-    private func deleteSongs(at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(songs[index])
-        }
     }
 }
 

@@ -18,6 +18,15 @@ import Observation
     /// 手動ドラッグ中フラグ（自動スクロールタイマーを一時停止）
     var isDragging: Bool = false
 
+    // MARK: 水平スクロール（テレプロンプターモード）
+    var isHorizontalMode: Bool = false
+    var contentWidth: CGFloat = 0
+    var viewWidth: CGFloat = 0
+
+    var maxScrollOffsetH: CGFloat {
+        max(0, contentWidth - viewWidth * 0.4)
+    }
+
     private let song: Song
     private var scrollTimer: Timer?
     private var clickTimer: Timer?
@@ -64,19 +73,30 @@ import Observation
         if !clickPlayer.isPlaying { clickPlayer.play() }
     }
 
-    var bpm: Int { song.bpm }
+    var bpm: Int          { song.bpm }
     var scrollSpeed: Double { song.scrollSpeed }
+    var prompterSpeed: Double { song.prompterSpeed }
     var clickInterval: Double { 60.0 / Double(song.bpm) }
 
-    /// スクロール可能な最大オフセット
+    func seekToNormalized(_ normalized: Double) {
+        let clamped = max(0, min(1, normalized))
+        scrollOffset = CGFloat(clamped) * maxScrollOffsetH
+    }
+
+    /// スクロール可能な最大オフセット（縦）
     var maxScrollOffset: CGFloat {
         max(0, contentHeight - viewHeight * 0.25)
+    }
+
+    /// 現在モードの最大オフセット
+    private var activeMaxOffset: CGFloat {
+        isHorizontalMode ? maxScrollOffsetH : maxScrollOffset
     }
 
     func play() {
         guard !isPlaying else { return }
         // 末尾に達していたら先頭から再生
-        if scrollOffset >= maxScrollOffset && maxScrollOffset > 0 {
+        if scrollOffset >= activeMaxOffset && activeMaxOffset > 0 {
             scrollOffset = 0
         }
         isPlaying = true
@@ -114,7 +134,7 @@ import Observation
         scrollTimer = t
     }
 
-    // MARK: - 手動スクロール
+    // MARK: - 手動スクロール（縦）
 
     func manualScroll(deltaY: CGFloat) {
         if isPlaying { pause() }
@@ -133,16 +153,37 @@ import Observation
         }
     }
 
+    // MARK: - 手動スクロール（横・テレプロンプター）
+
+    func manualScrollH(delta: CGFloat) {
+        if isPlaying { pause() }
+        isDragging = true
+        scrollOffset = max(0, min(maxScrollOffsetH, scrollOffset + delta))
+    }
+
+    func manualScrollEndH(velocity: CGFloat) {
+        isDragging = false
+        let speed = abs(velocity)
+        guard speed > 80 else { return }
+        let dist = min(viewWidth * 2, speed * 0.12) * (velocity > 0 ? 1 : -1)
+        let target = max(0, min(maxScrollOffsetH, scrollOffset + dist))
+        withAnimation(.easeOut(duration: 0.38)) {
+            scrollOffset = target
+        }
+    }
+
     // MARK: - 自動スクロール内部
 
     private func animateStep(interval: Double) {
-        guard maxScrollOffset > 0, !isDragging else { return }
-        let step = CGFloat(scrollSpeed * speedMultiplier * interval)
-        let target = min(scrollOffset + step, maxScrollOffset)
+        let maxOff = activeMaxOffset
+        guard maxOff > 0, !isDragging else { return }
+        let speed = isHorizontalMode ? prompterSpeed : scrollSpeed
+        let step = CGFloat(speed * speedMultiplier * interval)
+        let target = min(scrollOffset + step, maxOff)
         withAnimation(.linear(duration: interval)) {
             scrollOffset = target
         }
-        if target >= maxScrollOffset {
+        if target >= maxOff {
             // アニメーション完了後に停止
             DispatchQueue.main.asyncAfter(deadline: .now() + interval) { [weak self] in
                 self?.pause()

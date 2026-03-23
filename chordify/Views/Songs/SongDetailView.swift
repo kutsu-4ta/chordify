@@ -8,9 +8,12 @@ struct SongDetailView: View {
 
     @State private var viewModel: ScrollViewModel
     @State private var isEditing = false
+    @State private var isTeleprompter = false
     @State private var showSettings = false
     @State private var lastDragTranslation: CGFloat = 0
+    @State private var sectionToDelete: LyricsSection? = nil
     @FocusState private var focusedSectionID: UUID?
+    @Environment(\.scenePhase) private var scenePhase
 
     init(song: Song) {
         self.song = song
@@ -25,28 +28,32 @@ struct SongDetailView: View {
         Group {
             if isEditing {
                 editView
+            } else if isTeleprompter {
+                teleprompterView
             } else {
                 performanceView
             }
         }
-        .navigationTitle(song.title)
+        .navigationTitle(isTeleprompter ? "" : song.title)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(viewModel.isPlaying)
+        .navigationBarHidden(isTeleprompter)
+        .navigationBarBackButtonHidden(viewModel.isPlaying || isTeleprompter)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(isEditing ? "完了" : "編集") {
-                    if isEditing {
-                        isEditing = false
-                    } else {
-                        viewModel.pause()
-                        isEditing = true
-                        // 行がなければ最初の行を自動作成
-                        if song.sortedSections.isEmpty { addSection() }
+            if !isTeleprompter {
+                ToolbarItemGroup(placement: .navigationBarTrailing) {
+                    Button(isEditing ? "完了" : "編集") {
+                        if isEditing {
+                            isEditing = false
+                        } else {
+                            viewModel.pause()
+                            isEditing = true
+                            if song.sortedSections.isEmpty { addSection() }
+                        }
                     }
                 }
             }
 
-            if !isEditing {
+            if !isEditing && !isTeleprompter {
                 ToolbarItemGroup(placement: .bottomBar) {
                     // 自動スクロール
                     Button { viewModel.toggle() } label: {
@@ -65,17 +72,19 @@ struct SongDetailView: View {
 
                     Spacer()
 
-                    // コードの表示方法
-                    Menu {
-                        Picker("コードの表示方法", selection: $song.chordDisplayMode) {
-                            ForEach(ChordDisplayMode.allCases, id: \.self) { mode in
-                                Text(mode.label).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.inline)
-                        .labelsHidden()
+                    // コードの表示方法（タップで順番に切り替え）
+                    Button {
+                        song.chordDisplayMode = song.chordDisplayMode.next
                     } label: {
-                        Image(systemName: "eye")
+                        Image(systemName: song.chordDisplayMode.systemImage)
+                            .font(.title2)
+                    }
+
+                    Spacer()
+
+                    // テレプロンプター
+                    Button { enterTeleprompter() } label: {
+                        Image(systemName: "arrow.left.and.right.square")
                             .font(.title2)
                     }
 
@@ -92,9 +101,54 @@ struct SongDetailView: View {
         .sheet(isPresented: $showSettings) {
             SongSettingsSheet(song: song)
         }
+        .confirmationDialog(
+            "セクションを削除しますか？",
+            isPresented: Binding(get: { sectionToDelete != nil },
+                                 set: { if !$0 { sectionToDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                if let s = sectionToDelete { modelContext.delete(s) }
+                sectionToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) { sectionToDelete = nil }
+        }
         .onDisappear {
+            exitTeleprompterIfNeeded()
             viewModel.pause()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { exitTeleprompterIfNeeded() }
+        }
+    }
+
+    // MARK: - テレプロンプター制御
+
+    private var teleprompterView: some View {
+        TeleprompterView(
+            song: song,
+            viewModel: viewModel,
+            chordLookup: { chord(for: $0) },
+            onExit: exitTeleprompterIfNeeded
+        )
+        .ignoresSafeArea()
+    }
+
+    private func enterTeleprompter() {
+        viewModel.pause()
+        viewModel.scrollOffset = 0
+        viewModel.isHorizontalMode = true
+        isTeleprompter = true
+        OrientationManager.enterLandscape()
+    }
+
+    private func exitTeleprompterIfNeeded() {
+        guard isTeleprompter else { return }
+        viewModel.pause()
+        viewModel.scrollOffset = 0
+        viewModel.isHorizontalMode = false
+        isTeleprompter = false
+        OrientationManager.exitLandscape()
     }
 
     // MARK: - パフォーマンスビュー（テレプロンプター、閲覧専用）
@@ -102,6 +156,8 @@ struct SongDetailView: View {
     private var performanceView: some View {
         GeometryReader { geo in
             VStack(alignment: .leading, spacing: 0) {
+                // 先頭を画面中央から開始するための空白
+                Color.clear.frame(height: geo.size.height * 0.5)
                 ForEach(song.sortedSections) { section in
                     SectionRow(
                         section: section,
@@ -109,12 +165,12 @@ struct SongDetailView: View {
                         isEditing: false,
                         chordLookup: { chord(for: $0) },
                         focus: $focusedSectionID,
-                        onDelete: {},
                         onSubmit: { _ in }
                     )
                 }
                 Color.clear.frame(height: geo.size.height * 0.75)
             }
+            .contentShape(Rectangle())   // 余白でもスクロールジェスチャーを受け取る
             .background(
                 GeometryReader { inner in
                     Color.clear
@@ -142,11 +198,11 @@ struct SongDetailView: View {
         .clipped()
     }
 
-    // MARK: - 編集ビュー（同じ見た目、編集可能）
+    // MARK: - 編集ビュー（ドラッグ&ドロップでセクション並び替え可）
 
     private var editView: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
+        ScrollViewReader { proxy in
+            List {
                 ForEach(song.sortedSections) { section in
                     SectionRow(
                         section: section,
@@ -154,14 +210,35 @@ struct SongDetailView: View {
                         isEditing: true,
                         chordLookup: { chord(for: $0) },
                         focus: $focusedSectionID,
-                        onDelete: { modelContext.delete(section) },
                         onSubmit: { remainder in addSectionAfter(section, withLyrics: remainder) }
                     )
+                    .id(section.id)
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color(.systemBackground))
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            sectionToDelete = section
+                        } label: {
+                            Label("削除", systemImage: "trash")
+                        }
+                    }
                 }
             }
-            .padding(.bottom, 200)
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(Color(.systemGroupedBackground))
+            .scrollDismissesKeyboard(.interactively)
+            // フォーカスされたセクションがキーボードに隠れないようスクロール
+            .onChange(of: focusedSectionID) { _, id in
+                guard let id else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
+                }
+            }
         }
-        .background(Color(.systemGroupedBackground))
     }
 
     // MARK: - ヘルパー
@@ -189,11 +266,24 @@ struct SongDetailView: View {
         }
         let newSection = LyricsSection(order: insertOrder, song: song)
         newSection.lyrics = lyrics
+        // 改行時に直前のセクションのコードを引き継ぐ
+        newSection.chordPlacements = section.chordPlacements.map { p in
+            ChordPlacement(normalizedX: p.normalizedX, chordID: p.chordID,
+                           showDiagram: p.showDiagram, showName: p.showName)
+        }
         modelContext.insert(newSection)
         song.sections.append(newSection)
         let id = newSection.id
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             focusedSectionID = id
+        }
+    }
+
+    private func moveSections(from source: IndexSet, to destination: Int) {
+        var sorted = song.sortedSections
+        sorted.move(fromOffsets: source, toOffset: destination)
+        for (newOrder, section) in sorted.enumerated() {
+            section.order = newOrder
         }
     }
 }
@@ -206,7 +296,6 @@ private struct SectionRow: View {
     let isEditing: Bool
     let chordLookup: (UUID) -> ChordDiagram?
     var focus: FocusState<UUID?>.Binding
-    let onDelete: () -> Void
     let onSubmit: (String) -> Void
 
     @State private var pendingNX: Double? = nil
@@ -226,24 +315,12 @@ private struct SectionRow: View {
     private let diagramH: CGFloat = 36
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                chordArea
-                lyricsView
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-
-            if isEditing {
-                Button(action: onDelete) {
-                    Image(systemName: "minus.circle")
-                        .foregroundStyle(Color.secondary.opacity(0.4))
-                        .font(.system(size: 16))
-                }
-                .padding(.top, section.chordPlacements.isEmpty ? 10 : (diagramH + 20))
-                .padding(.trailing, 12)
-            }
+        VStack(alignment: .leading, spacing: 2) {
+            chordArea
+            lyricsView
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
         .background(isEditing ? Color(.systemBackground) : .clear)
         .overlay(alignment: .bottom) {
             Divider().opacity(isEditing ? 1.0 : 0.18)
@@ -487,6 +564,7 @@ private struct SongSettingsSheet: View {
             Form {
                 songInfoSection
                 scrollSection
+                prompterSection
                 memoSection
             }
             .navigationTitle("曲の設定")
@@ -506,6 +584,12 @@ private struct SongSettingsSheet: View {
                 Text("タイトル")
                 TextField("タイトル", text: $song.title)
                     .multilineTextAlignment(.trailing)
+            }
+            HStack {
+                Text("ステータス")
+                TextField("例: 練習中、本番OK、要修正", text: $song.statusLabel)
+                    .multilineTextAlignment(.trailing)
+                    .autocorrectionDisabled()
             }
             HStack {
                 Text("BPM")
@@ -542,9 +626,25 @@ private struct SongSettingsSheet: View {
         }
     }
 
+    private var prompterSection: some View {
+        Section {
+            Stepper(
+                "スクロール速度: \(Int(song.prompterSpeed)) pt/秒",
+                value: $song.prompterSpeed,
+                in: 10...400,
+                step: 10
+            )
+        } header: {
+            Text("テレプロンプター")
+        } footer: {
+            Text("横画面テレプロンプター専用のスクロール速度です")
+                .font(.caption)
+        }
+    }
+
     private var memoSection: some View {
         Section("メモ") {
-            TextField("自由にメモを入力", text: $song.memo, axis: .vertical)
+            TextField("例: 2026春セットリスト", text: $song.memo, axis: .vertical)
                 .lineLimit(4...8)
         }
     }
