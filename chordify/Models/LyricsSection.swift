@@ -14,10 +14,10 @@ import SwiftData
     var effectorMemo: EffectorMemo?
 
     init(order: Int, lyrics: String = "", song: Song? = nil) {
-        self.id = UUID()
+        id = UUID()
         self.order = order
         self.lyrics = lyrics
-        self.chordPlacements = []
+        chordPlacements = []
         self.song = song
     }
 }

@@ -35,7 +35,7 @@ struct ChordDiagramCell: View {
                     StringFingering(fret: 2),
                     StringFingering(fret: 2),
                     StringFingering(fret: 1),
-                    StringFingering(fret: 0)
+                    StringFingering(fret: 0),
                 ],
                 startFret: 1
             )

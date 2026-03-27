@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct SongDetailView: View {
     @Bindable var song: Song
@@ -15,9 +15,11 @@ struct SongDetailView: View {
     @FocusState private var focusedSectionID: UUID?
     @Environment(\.scenePhase) private var scenePhase
 
+    @StateObject private var recordManager = RecordManager()
+
     init(song: Song) {
         self.song = song
-        self._viewModel = State(initialValue: ScrollViewModel(song: song))
+        _viewModel = State(initialValue: ScrollViewModel(song: song))
     }
 
     func chord(for id: UUID) -> ChordDiagram? {
@@ -25,13 +27,15 @@ struct SongDetailView: View {
     }
 
     var body: some View {
-        Group {
-            if isEditing {
-                editView
-            } else if isTeleprompter {
-                teleprompterView
-            } else {
-                performanceView
+        VStack(spacing: 0) { // 全体をVStackで包み、下にプレイヤーを置く
+            Group {
+                if isEditing { editView }
+                else if isTeleprompter { teleprompterView }
+                else { performanceView }
+            }
+
+            if recordManager.playingURL != nil {
+                audioPlayerBar
             }
         }
         .navigationTitle(isTeleprompter ? "" : song.title)
@@ -52,13 +56,13 @@ struct SongDetailView: View {
                     }
                 }
             }
-            
+
             if !isEditing && !isTeleprompter {
                 bottomToolbar
             }
         }
         .sheet(isPresented: $showSettings) {
-            SongSettingsSheet(song: song)
+            SongSettingsSheet(song: song, recordManager: recordManager)
         }
         .confirmationDialog(
             "セクションを削除しますか？",
@@ -85,61 +89,61 @@ struct SongDetailView: View {
     }
 
     // MARK: - ツールバー
-    
+
     private var bottomToolbar: some ToolbarContent {
-                ToolbarItemGroup(placement: .bottomBar) {
-                    // 自動スクロール
-                    Button { viewModel.toggle() } label: {
-                        Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.title2)
-                    }
+        ToolbarItemGroup(placement: .bottomBar) {
+            // 自動スクロール
+            Button { viewModel.toggle() } label: {
+                Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                    .font(.title2)
+            }
 
-                    Spacer()
+            Spacer()
 
-                    // メトロノーム
-                    Button { viewModel.toggleClick() } label: {
-                        Image(systemName: viewModel.clickEnabled ? "metronome.fill" : "metronome")
-                            .font(.title2)
-                            .foregroundColor(viewModel.clickEnabled ? .accentColor : .primary)
-                    }
+            // メトロノーム
+            Button { viewModel.toggleClick() } label: {
+                Image(systemName: viewModel.clickEnabled ? "metronome.fill" : "metronome")
+                    .font(.title2)
+                    .foregroundColor(viewModel.clickEnabled ? .accentColor : .primary)
+            }
 
-                    Spacer()
-                    
-                    // 録音
-                    Button { viewModel.toggleRecording() } label: {
-                        Image(systemName: viewModel.recordingEnabled ? "record.circle.fill" : "record.circle")
-                            .font(.title2)
-                            .foregroundColor(viewModel.recordingEnabled ? .red : .primary)
-                    }
+            Spacer()
 
-                    Spacer()
+            // 録音
+            Button { viewModel.toggleRecording() } label: {
+                Image(systemName: viewModel.recordingEnabled ? "record.circle.fill" : "record.circle")
+                    .font(.title2)
+                    .foregroundColor(viewModel.recordingEnabled ? .red : .primary)
+            }
 
-                    // コードの表示方法（タップで順番に切り替え）
-                    Button {
-                        song.chordDisplayMode = song.chordDisplayMode.next
-                    } label: {
-                        Image(systemName: song.chordDisplayMode.systemImage)
-                            .font(.title2)
-                    }
+            Spacer()
 
-                    Spacer()
+            // コードの表示方法（タップで順番に切り替え）
+            Button {
+                song.chordDisplayMode = song.chordDisplayMode.next
+            } label: {
+                Image(systemName: song.chordDisplayMode.systemImage)
+                    .font(.title2)
+            }
 
-                    // テレプロンプター
-                    Button { enterTeleprompter() } label: {
-                        Image(systemName: "arrow.left.and.right.square")
-                            .font(.title2)
-                    }
+            Spacer()
 
-                    Spacer()
+            // テレプロンプター
+            Button { enterTeleprompter() } label: {
+                Image(systemName: "arrow.left.and.right.square")
+                    .font(.title2)
+            }
 
-                    // 設定
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape")
-                            .font(.title2)
-                }
+            Spacer()
+
+            // 設定
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+                    .font(.title2)
+            }
         }
     }
-    
+
     // MARK: - テレプロンプター制御
 
     private var teleprompterView: some View {
@@ -188,7 +192,7 @@ struct SongDetailView: View {
                 }
                 Color.clear.frame(height: geo.size.height * 0.75)
             }
-            .contentShape(Rectangle())   // 余白でもスクロールジェスチャーを受け取る
+            .contentShape(Rectangle()) // 余白でもスクロールジェスチャーを受け取る
             .background(
                 GeometryReader { inner in
                     Color.clear
@@ -304,6 +308,57 @@ struct SongDetailView: View {
             section.order = newOrder
         }
     }
+
+    // MARK: - 録音再生プレイヤー
+
+    private var audioPlayerBar: some View {
+        VStack(spacing: 4) {
+            // Sliderの範囲が 0...0 にならないよう最大値を保証
+            Slider(
+                value: $recordManager.currentTime,
+                in: 0 ... max(recordManager.duration, 1.0),
+                onEditingChanged: { editing in
+                    if !editing {
+                        // 指を離した（editing == false）瞬間に、その位置へシーク
+                        recordManager.seek(to: recordManager.currentTime)
+                    }
+                }
+            )
+            .tint(.blue)
+            .padding(.horizontal)
+
+            HStack {
+                Text(formatTime(recordManager.currentTime))
+                Spacer()
+
+                // 再生・一時停止ボタン（togglePlaybackを使用）
+                Button {
+                    if let url = recordManager.playingURL {
+                        recordManager.togglePlayback(for: url)
+                    }
+                } label: {
+                    Image(systemName: recordManager.isPlaying ? "pause.fill" : "play.fill")
+                        .font(.title3)
+                        .foregroundColor(.blue)
+                }
+                .padding(.leading, 20)
+
+                Spacer()
+                Text(formatTime(recordManager.duration))
+            }
+            .font(.caption2)
+            .monospacedDigit()
+            .padding(.horizontal)
+            .padding(.bottom, 8)
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        let mins = Int(time) / 60
+        let secs = Int(time) % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
 }
 
 // MARK: - SectionRow（編集・閲覧で同一レイアウト）
@@ -354,7 +409,8 @@ private struct SectionRow: View {
         .confirmationDialog(actionChordName, isPresented: $showActions, titleVisibility: .visible) {
             Button(actionShowDiagram ? "ダイアグラムを非表示にする" : "ダイアグラムを表示する") {
                 if let pid = tappedPlacementID,
-                   let idx = section.chordPlacements.firstIndex(where: { $0.id == pid }) {
+                   let idx = section.chordPlacements.firstIndex(where: { $0.id == pid })
+                {
                     section.chordPlacements[idx].showDiagram.toggle()
                 }
                 tappedPlacementID = nil
@@ -362,7 +418,8 @@ private struct SectionRow: View {
             if actionHasName {
                 Button(actionShowName ? "コード名を非表示にする" : "コード名を表示する") {
                     if let pid = tappedPlacementID,
-                       let idx = section.chordPlacements.firstIndex(where: { $0.id == pid }) {
+                       let idx = section.chordPlacements.firstIndex(where: { $0.id == pid })
+                    {
                         section.chordPlacements[idx].showName.toggle()
                     }
                     tappedPlacementID = nil
@@ -391,7 +448,7 @@ private struct SectionRow: View {
     /// パフォーマンスモードでこのプレースメントのダイアグラムを表示するか
     private func effectiveShowDiagram(_ placement: ChordPlacement) -> Bool {
         switch song.chordDisplayMode {
-        case .custom:      return placement.showDiagram
+        case .custom: return placement.showDiagram
         case .diagramOnly: return true
         case .nameOnly, .hidden: return false
         }
@@ -401,23 +458,27 @@ private struct SectionRow: View {
     private func effectiveShowName(_ placement: ChordPlacement, chord: ChordDiagram?) -> Bool {
         guard let chord, !chord.name.isEmpty else { return false }
         switch song.chordDisplayMode {
-        case .custom:    return placement.showName
-        case .nameOnly:  return true
+        case .custom: return placement.showName
+        case .nameOnly: return true
         case .diagramOnly, .hidden: return false
         }
     }
 
     /// ダイアグラム+コード名を収めるのに必要な高さ
-    private var diagramWithNameH: CGFloat { diagramH + 20 }  // 36+20=56
+    private var diagramWithNameH: CGFloat {
+        diagramH + 20
+    } // 36+20=56
     /// ダイアグラムのみの高さ
-    private var diagramOnlyH: CGFloat    { diagramH + 8  }   // 36+8=44
+    private var diagramOnlyH: CGFloat {
+        diagramH + 8
+    } // 36+8=44
 
     /// パフォーマンスモードでのコードエリアの高さ
     private var performanceChordAreaHeight: CGFloat {
         guard !section.chordPlacements.isEmpty else { return 0 }
         switch song.chordDisplayMode {
-        case .hidden:      return 0
-        case .nameOnly:    return 22
+        case .hidden: return 0
+        case .nameOnly: return 22
         case .diagramOnly: return diagramOnlyH
         case .custom:
             let anyDiag = section.chordPlacements.contains { $0.showDiagram }
@@ -555,7 +616,7 @@ private struct SectionRow: View {
                     // Return キーを改行挿入ではなく次行作成に使う
                     if let nlRange = newValue.range(of: "\n") {
                         let before = String(newValue[..<nlRange.lowerBound])
-                        let after  = String(newValue[newValue.index(after: nlRange.lowerBound)...])
+                        let after = String(newValue[newValue.index(after: nlRange.lowerBound)...])
                         section.lyrics = before
                         onSubmit(after)
                     }
@@ -576,8 +637,8 @@ private struct SongSettingsSheet: View {
     @Bindable var song: Song
     @Environment(\.dismiss) var dismiss
     @State private var bpmText = ""
-    
-    @StateObject private var recordManager = RecordManager()
+    @ObservedObject var recordManager: RecordManager
+//    @StateObject private var recordManager = RecordManager()
 
     var body: some View {
         NavigationStack {
@@ -629,7 +690,7 @@ private struct SongSettingsSheet: View {
             Stepper(
                 song.capo == 0 ? "カポ: なし" : "カポ: \(song.capo)フレット",
                 value: $song.capo,
-                in: 0...12
+                in: 0 ... 12
             )
         }
     }
@@ -639,7 +700,7 @@ private struct SongSettingsSheet: View {
             Stepper(
                 "スクロール速度: \(Int(song.scrollSpeed)) pt/秒",
                 value: $song.scrollSpeed,
-                in: 10...300,
+                in: 10 ... 300,
                 step: 10
             )
         } header: {
@@ -667,9 +728,9 @@ private struct SongSettingsSheet: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
-                        
+
                         Spacer()
-                        
+
                         Image(systemName: recordManager.playingURL == url ? "stop.circle.fill" : "play.circle")
                             .font(.title2)
                             .foregroundColor(recordManager.playingURL == url ? .red : .blue)
@@ -686,12 +747,12 @@ private struct SongSettingsSheet: View {
             }
         }
     }
-    
+
     private func displayFileName(url: URL) -> String {
-            let name = url.lastPathComponent
-            return name.replacingOccurrences(of: "\(song.id.uuidString)-", with: "")
-        }
-    
+        let name = url.lastPathComponent
+        return name.replacingOccurrences(of: "\(song.id.uuidString)-", with: "")
+    }
+
     private func fileDate(url: URL) -> String {
         let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
         let date = attributes?[.creationDate] as? Date ?? Date()
@@ -703,7 +764,7 @@ private struct SongSettingsSheet: View {
             Stepper(
                 "スクロール速度: \(Int(song.prompterSpeed)) pt/秒",
                 value: $song.prompterSpeed,
-                in: 10...400,
+                in: 10 ... 400,
                 step: 10
             )
         } header: {
@@ -717,7 +778,7 @@ private struct SongSettingsSheet: View {
     private var memoSection: some View {
         Section("メモ") {
             TextField("例: 2026春セットリスト", text: $song.memo, axis: .vertical)
-                .lineLimit(4...8)
+                .lineLimit(4 ... 8)
         }
     }
 }
@@ -755,4 +816,3 @@ private struct ChordPreviewSheet: View {
         .presentationDetents([.medium])
     }
 }
-

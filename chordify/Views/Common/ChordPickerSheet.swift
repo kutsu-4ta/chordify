@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ChordPickerSheet: View {
     let song: Song
@@ -23,7 +23,7 @@ struct ChordPickerSheet: View {
         var seen = Set<String>()
         var ordered: [String] = []
         for chord in globalChords {
-            if !chord.folder.isEmpty && !seen.contains(chord.folder) {
+            if !chord.folder.isEmpty, !seen.contains(chord.folder) {
                 seen.insert(chord.folder)
                 ordered.append(chord.folder)
             }

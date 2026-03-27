@@ -12,7 +12,7 @@ import SwiftData
     var song: Song?
 
     init(position: Double, label: String) {
-        self.id = UUID()
+        id = UUID()
         self.position = max(0, min(1, position))
         self.label = label
     }

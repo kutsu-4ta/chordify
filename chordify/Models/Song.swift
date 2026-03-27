@@ -2,35 +2,35 @@ import Foundation
 import SwiftData
 
 enum ChordDisplayMode: String, Codable, CaseIterable {
-    case custom      = "custom"
-    case diagramOnly = "diagramOnly"
-    case nameOnly    = "nameOnly"
-    case hidden      = "hidden"
+    case custom
+    case diagramOnly
+    case nameOnly
+    case hidden
 
     var label: String {
         switch self {
-        case .custom:      return "カスタム"
+        case .custom: return "カスタム"
         case .diagramOnly: return "ダイアグラムのみ"
-        case .nameOnly:    return "コード名のみ"
-        case .hidden:      return "非表示"
+        case .nameOnly: return "コード名のみ"
+        case .hidden: return "非表示"
         }
     }
 
     var next: ChordDisplayMode {
         switch self {
-        case .custom:      return .diagramOnly
+        case .custom: return .diagramOnly
         case .diagramOnly: return .nameOnly
-        case .nameOnly:    return .hidden
-        case .hidden:      return .custom
+        case .nameOnly: return .hidden
+        case .hidden: return .custom
         }
     }
 
     var systemImage: String {
         switch self {
-        case .custom:      return "music.note"
+        case .custom: return "music.note"
         case .diagramOnly: return "rectangle.grid.2x2"
-        case .nameOnly:    return "textformat"
-        case .hidden:      return "eye.slash"
+        case .nameOnly: return "textformat"
+        case .hidden: return "eye.slash"
         }
     }
 }
@@ -81,18 +81,18 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
         isClickEnabled: Bool = false,
         isRecordingEnabled: Bool = false
     ) {
-        self.id = UUID()
+        id = UUID()
         self.title = title
         self.bpm = bpm
         self.scrollSpeed = scrollSpeed
         self.isClickEnabled = isClickEnabled
         self.isRecordingEnabled = isRecordingEnabled
-        self.createdAt = Date()
-        self.chordDisplayMode = .custom
-        self.capo = 0
-        self.memo = ""
-        self.beatsPerSection = 8
-        self.scrollSpeedOverride = nil
+        createdAt = Date()
+        chordDisplayMode = .custom
+        capo = 0
+        memo = ""
+        beatsPerSection = 8
+        scrollSpeedOverride = nil
     }
 
     /// Sections sorted by their `order` property

@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct SongListView: View {
     @Query(sort: \Song.createdAt, order: .reverse) var songs: [Song]
@@ -16,7 +16,7 @@ struct SongListView: View {
         let q = searchText.lowercased()
         return songs.filter {
             $0.title.lowercased().contains(q) ||
-            $0.memo.lowercased().contains(q)
+                $0.memo.lowercased().contains(q)
         }
     }
 

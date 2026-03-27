@@ -1,6 +1,6 @@
-import SwiftUI
 import AVFoundation
 import Observation
+import SwiftUI
 
 // MARK: - ScrollViewModel
 
@@ -20,6 +20,7 @@ import Observation
     var isDragging: Bool = false
 
     // MARK: 水平スクロール（テレプロンプターモード）
+
     var isHorizontalMode: Bool = false
     var contentWidth: CGFloat = 0
     var viewWidth: CGFloat = 0
@@ -35,7 +36,7 @@ import Observation
     private let audioEngine = AVAudioEngine()
     private let clickPlayer = AVAudioPlayerNode()
     private var clickBuffer: AVAudioPCMBuffer?
-    
+
     let recorderManager = RecordManager()
 
     /// タイマー間隔（秒）
@@ -43,8 +44,8 @@ import Observation
 
     init(song: Song) {
         self.song = song
-        self.clickEnabled = song.isClickEnabled
-        self.recordingEnabled = song.isRecordingEnabled
+        clickEnabled = song.isClickEnabled
+        recordingEnabled = song.isRecordingEnabled
         setupAudioEngine()
     }
 
@@ -58,11 +59,11 @@ import Observation
 
     private func makeClickBuffer(format: AVAudioFormat) -> AVAudioPCMBuffer? {
         let sampleRate = format.sampleRate
-        let frameCount = AVAudioFrameCount(sampleRate * 0.05)  // 50ms
+        let frameCount = AVAudioFrameCount(sampleRate * 0.05) // 50ms
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameCount) else { return nil }
         buffer.frameLength = frameCount
         let data = buffer.floatChannelData![0]
-        for i in 0..<Int(frameCount) {
+        for i in 0 ..< Int(frameCount) {
             let t = Double(i) / sampleRate
             // 880Hz の短いサイン波 + 指数減衰
             data[i] = Float(sin(2 * .pi * 880 * t) * exp(-t * 80) * 0.9)
@@ -77,10 +78,21 @@ import Observation
         if !clickPlayer.isPlaying { clickPlayer.play() }
     }
 
-    var bpm: Int          { song.bpm }
-    var scrollSpeed: Double { song.scrollSpeed }
-    var prompterSpeed: Double { song.prompterSpeed }
-    var clickInterval: Double { 60.0 / Double(song.bpm) }
+    var bpm: Int {
+        song.bpm
+    }
+
+    var scrollSpeed: Double {
+        song.scrollSpeed
+    }
+
+    var prompterSpeed: Double {
+        song.prompterSpeed
+    }
+
+    var clickInterval: Double {
+        60.0 / Double(song.bpm)
+    }
 
     func seekToNormalized(_ normalized: Double) {
         let clamped = max(0, min(1, normalized))
@@ -100,7 +112,7 @@ import Observation
     func play() {
         guard !isPlaying else { return }
         // 末尾に達していたら先頭から再生
-        if scrollOffset >= activeMaxOffset && activeMaxOffset > 0 {
+        if scrollOffset >= activeMaxOffset, activeMaxOffset > 0 {
             scrollOffset = 0
         }
         isPlaying = true
@@ -198,7 +210,6 @@ import Observation
         scrollTimer = nil
     }
 
-    
     // MARK: - クリック音
 
     private func startClickTimer() {
@@ -225,7 +236,7 @@ import Observation
             else { stopClickTimer() }
         }
     }
-    
+
     // MARK: - 録音
 
     func toggleRecording() {
@@ -241,6 +252,4 @@ import Observation
     private func stopRecording() {
         recorderManager.stop(songID: song.id)
     }
-
 }
-

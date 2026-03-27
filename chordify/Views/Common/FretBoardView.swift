@@ -18,13 +18,13 @@ struct FretBoardView: View {
     private func draw(context: GraphicsContext, size: CGSize) {
         let fretCount = fingering.fretCount
 
-        let xoWidth: CGFloat    = size.width * 0.13
-        let topPad: CGFloat     = size.height * 0.05
-        let bottomPad: CGFloat  = size.height * 0.07
+        let xoWidth: CGFloat = size.width * 0.13
+        let topPad: CGFloat = size.height * 0.05
+        let bottomPad: CGFloat = size.height * 0.07
 
-        let nutX: CGFloat       = xoWidth
-        let gridWidth: CGFloat  = size.width - nutX
-        let gridTop: CGFloat    = topPad
+        let nutX: CGFloat = xoWidth
+        let gridWidth: CGFloat = size.width - nutX
+        let gridTop: CGFloat = topPad
         let gridBottom: CGFloat = size.height - bottomPad
         let gridHeight: CGFloat = gridBottom - gridTop
 
@@ -33,8 +33,12 @@ struct FretBoardView: View {
 
         let fg = GraphicsContext.Shading.color(.primary)
 
-        func sy(_ si: Int) -> CGFloat { gridTop + CGFloat(5 - si) * stringSpacing }
-        func fx(_ fi: Int) -> CGFloat { nutX + CGFloat(fi) * fretCellWidth }
+        func sy(_ si: Int) -> CGFloat {
+            gridTop + CGFloat(5 - si) * stringSpacing
+        }
+        func fx(_ fi: Int) -> CGFloat {
+            nutX + CGFloat(fi) * fretCellWidth
+        }
 
         // 背景（薄いグレー）
         let bgRect = CGRect(x: nutX, y: gridTop, width: gridWidth, height: gridHeight)
@@ -60,7 +64,7 @@ struct FretBoardView: View {
         }
 
         // フレット線（垂直）
-        for fi in 1...fretCount {
+        for fi in 1 ... fretCount {
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: fx(fi), y: gridTop))
                 p.addLine(to: CGPoint(x: fx(fi), y: gridBottom))
@@ -68,7 +72,7 @@ struct FretBoardView: View {
         }
 
         // 弦線（水平）低音弦ほど太く
-        for si in 0..<6 {
+        for si in 0 ..< 6 {
             context.stroke(Path { p in
                 p.move(to: CGPoint(x: nutX, y: sy(si)))
                 p.addLine(to: CGPoint(x: size.width, y: sy(si)))
@@ -80,9 +84,9 @@ struct FretBoardView: View {
         let indR: CGFloat = min(xoWidth * 0.34, stringSpacing * 0.38)
         let dotR: CGFloat = min(fretCellWidth * 0.36, stringSpacing * 0.44)
 
-        for si in 0..<6 {
+        for si in 0 ..< 6 {
             let sf = fingering.strings[si]
-            let y  = sy(si)
+            let y = sy(si)
 
             if sf.isMuted {
                 let r = indR
@@ -96,17 +100,19 @@ struct FretBoardView: View {
             } else if sf.isOpen {
                 context.stroke(
                     Path(ellipseIn: CGRect(x: xoCX - indR, y: y - indR,
-                                          width: indR * 2, height: indR * 2)),
-                    with: fg, lineWidth: 1.2)
+                                           width: indR * 2, height: indR * 2)),
+                    with: fg, lineWidth: 1.2
+                )
 
             } else if sf.isPressed {
                 let rel = sf.fret - fingering.startFret + 1
-                if (1...fretCount).contains(rel) {
+                if (1 ... fretCount).contains(rel) {
                     let dotX = fx(rel) - fretCellWidth * 0.5
                     context.fill(
                         Path(ellipseIn: CGRect(x: dotX - dotR, y: y - dotR,
-                                              width: dotR * 2, height: dotR * 2)),
-                        with: fg)
+                                               width: dotR * 2, height: dotR * 2)),
+                        with: fg
+                    )
                 }
             }
         }
@@ -121,7 +127,7 @@ struct FretBoardView: View {
             StringFingering(fret: 2),
             StringFingering(fret: 0),
             StringFingering(fret: 1),
-            StringFingering(fret: 0)
+            StringFingering(fret: 0),
         ],
         startFret: 1, fretCount: 5
     )

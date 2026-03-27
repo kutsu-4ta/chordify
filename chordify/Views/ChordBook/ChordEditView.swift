@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ChordEditView: View {
     var chord: ChordDiagram?
@@ -16,7 +16,9 @@ struct ChordEditView: View {
     @Query(filter: #Predicate<ChordDiagram> { $0.isGlobal }, sort: \ChordDiagram.createdAt)
     private var globalChords: [ChordDiagram]
 
-    var isEditing: Bool { chord != nil }
+    var isEditing: Bool {
+        chord != nil
+    }
 
     var existingFolders: [String] {
         var seen = Set<String>()
@@ -49,9 +51,9 @@ struct ChordEditView: View {
             }
             .onAppear {
                 if let chord {
-                    name      = chord.name
+                    name = chord.name
                     fingering = chord.fingering
-                    folder    = chord.folder
+                    folder = chord.folder
                 }
             }
         }
@@ -113,12 +115,12 @@ struct ChordEditView: View {
     // MARK: - 保存
 
     private func save() {
-        let trimmedName   = name.trimmingCharacters(in: .whitespaces)
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
         let trimmedFolder = folder.trimmingCharacters(in: .whitespaces)
         if let chord {
-            chord.name      = trimmedName
+            chord.name = trimmedName
             chord.fingering = fingering
-            chord.folder    = trimmedFolder
+            chord.folder = trimmedFolder
         } else {
             let newChord = ChordDiagram(
                 name: trimmedName,

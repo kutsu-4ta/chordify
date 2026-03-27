@@ -8,7 +8,7 @@ import SwiftData
     var section: LyricsSection?
 
     init(text: String = "", knobSettings: String = "", section: LyricsSection? = nil) {
-        self.id = UUID()
+        id = UUID()
         self.text = text
         self.knobSettings = knobSettings
         self.section = section

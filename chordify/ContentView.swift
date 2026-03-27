@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct ContentView: View {
     @Environment(\.modelContext) var modelContext
@@ -37,10 +37,10 @@ struct ContentView: View {
 private struct SplashView: View {
     @State private var lineProgress: CGFloat = 0
     @State private var orangeScale: CGFloat = 0
-    @State private var blueScale:   CGFloat = 0
-    @State private var pinkScale:   CGFloat = 0
-    @State private var barsOpacity: Double  = 0
-    @State private var textOpacity:  Double  = 0
+    @State private var blueScale: CGFloat = 0
+    @State private var pinkScale: CGFloat = 0
+    @State private var barsOpacity: Double = 0
+    @State private var textOpacity: Double = 0
 
     var body: some View {
         ZStack {
@@ -53,10 +53,10 @@ private struct SplashView: View {
             VStack(spacing: 32) {
                 ChordifyIconView(
                     lineProgress: lineProgress,
-                    orangeScale:  orangeScale,
-                    blueScale:    blueScale,
-                    pinkScale:    pinkScale,
-                    barsOpacity:  barsOpacity
+                    orangeScale: orangeScale,
+                    blueScale: blueScale,
+                    pinkScale: pinkScale,
+                    barsOpacity: barsOpacity
                 )
                 .frame(width: 200, height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: 44))
@@ -75,8 +75,8 @@ private struct SplashView: View {
             withAnimation(.easeInOut(duration: 0.6).delay(0.12)) { lineProgress = 1 }
             // 音符（ライン到達タイミングに合わせてスプリングで出現）
             withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.42)) { orangeScale = 1 }
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.58)) { blueScale   = 1 }
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.72)) { pinkScale   = 1 }
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.58)) { blueScale = 1 }
+            withAnimation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.72)) { pinkScale = 1 }
             // テキスト
             withAnimation(.easeOut(duration: 0.4).delay(0.68)) { textOpacity = 1 }
         }
@@ -87,15 +87,15 @@ private struct SplashView: View {
 
 private struct ChordifyIconView: View {
     let lineProgress: CGFloat
-    let orangeScale:  CGFloat
-    let blueScale:    CGFloat
-    let pinkScale:    CGFloat
-    let barsOpacity:  Double
+    let orangeScale: CGFloat
+    let blueScale: CGFloat
+    let pinkScale: CGFloat
+    let barsOpacity: Double
 
-    private let white  = Color(r: 254, g: 255, b: 250)
-    private let blue   = Color(r:   5, g: 124, b: 249)
-    private let orange = Color(r: 242, g: 155, b:  24)
-    private let pink   = Color(r: 254, g: 120, b: 125)
+    private let white = Color(r: 254, g: 255, b: 250)
+    private let blue = Color(r: 5, g: 124, b: 249)
+    private let orange = Color(r: 242, g: 155, b: 24)
+    private let pink = Color(r: 254, g: 120, b: 125)
 
     var body: some View {
         GeometryReader { geo in
@@ -111,7 +111,7 @@ private struct ChordifyIconView: View {
 
                 // 縦バー 2本
                 Group {
-                    vertBar(cx: 164.305, top: 239.97,  bottom: 752.409, w: 32.61, s: s)
+                    vertBar(cx: 164.305, top: 239.97, bottom: 752.409, w: 32.61, s: s)
                     vertBar(cx: 255.923, top: 238.418, bottom: 750.857, w: 32.61, s: s)
                 }
                 .opacity(barsOpacity)
@@ -123,23 +123,23 @@ private struct ChordifyIconView: View {
 
                 // 音符（スプリングでスケールイン）
                 note(cx: 427.512, cy: 495.414, r: 94.7236, color: orange, scale: orangeScale, s: s)
-                note(cx: 669.756, cy: 739.211, r: 94.7236, color: blue,   scale: blueScale,   s: s)
-                note(cx: 817.276, cy: 254.724, r: 94.7236, color: pink,   scale: pinkScale,   s: s)
+                note(cx: 669.756, cy: 739.211, r: 94.7236, color: blue, scale: blueScale, s: s)
+                note(cx: 817.276, cy: 254.724, r: 94.7236, color: pink, scale: pinkScale, s: s)
             }
         }
     }
 
-    // スタッフライン
+    /// スタッフライン
     private func staffLine(y: CGFloat, s: CGFloat) -> some View {
         Path { path in
-            path.move(to:    CGPoint(x: 165.47  * s, y: y * s))
+            path.move(to: CGPoint(x: 165.47 * s, y: y * s))
             path.addLine(to: CGPoint(x: 878.614 * s, y: y * s))
         }
         .trim(from: 0, to: lineProgress)
         .stroke(white, style: StrokeStyle(lineWidth: 40 * s, lineCap: .round))
     }
 
-    // 縦バー（角丸矩形）
+    /// 縦バー（角丸矩形）
     private func vertBar(cx: CGFloat, top: CGFloat, bottom: CGFloat, w: CGFloat, s: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: (w * s) / 2)
             .fill(white)
@@ -147,7 +147,7 @@ private struct ChordifyIconView: View {
             .position(x: cx * s, y: (top + bottom) / 2 * s)
     }
 
-    // 音符（円）— scaleEffect を position より先に適用して自分の中心から拡大
+    /// 音符（円）— scaleEffect を position より先に適用して自分の中心から拡大
     private func note(cx: CGFloat, cy: CGFloat, r: CGFloat, color: Color, scale: CGFloat, s: CGFloat) -> some View {
         Circle()
             .fill(color)

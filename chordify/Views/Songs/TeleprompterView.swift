@@ -7,7 +7,7 @@ struct TeleprompterView: View {
     let chordLookup: (UUID) -> ChordDiagram?
     let onExit: () -> Void
 
-    // コンテンツ横スクロール
+    /// コンテンツ横スクロール
     @State private var lastDragTranslation: CGFloat = 0
 
     // ストラクトラベル
@@ -16,11 +16,11 @@ struct TeleprompterView: View {
     @State private var editingSection: LyricsSection? = nil
     @State private var editingLabel: String = ""
 
-    private let columnWidth: CGFloat    = 280
-    private let diagramW: CGFloat       = 64
-    private let diagramH: CGFloat       = 36
-    private let timelineH: CGFloat      = 44
-    private let sideBarW: CGFloat       = 52
+    private let columnWidth: CGFloat = 280
+    private let diagramW: CGFloat = 64
+    private let diagramH: CGFloat = 36
+    private let timelineH: CGFloat = 44
+    private let sideBarW: CGFloat = 52
 
     // MARK: - Body
 
@@ -53,7 +53,7 @@ struct TeleprompterView: View {
                 }
                 Color.clear.frame(width: geo.size.width * 0.6)
             }
-            .contentShape(Rectangle())   // 余白でもジェスチャーを受け取る
+            .contentShape(Rectangle()) // 余白でもジェスチャーを受け取る
             .background(
                 GeometryReader { inner in
                     Color.clear
@@ -91,7 +91,8 @@ struct TeleprompterView: View {
                         .autocorrectionDisabled()
                 }
                 if let sec = editingSection,
-                   !sec.structLabel.trimmingCharacters(in: .whitespaces).isEmpty {
+                   !sec.structLabel.trimmingCharacters(in: .whitespaces).isEmpty
+                {
                     Section {
                         Button("メモを削除", role: .destructive) {
                             editingSection?.structLabel = ""
@@ -238,7 +239,6 @@ struct TeleprompterView: View {
 
     // MARK: - セクション列
 
-    @ViewBuilder
     private func sectionColumn(_ section: LyricsSection, height: CGFloat) -> some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
@@ -355,8 +355,8 @@ struct TeleprompterView: View {
 
     private func effectiveShowDiagram(_ placement: ChordPlacement) -> Bool {
         switch song.chordDisplayMode {
-        case .custom:            return placement.showDiagram
-        case .diagramOnly:       return true
+        case .custom: return placement.showDiagram
+        case .diagramOnly: return true
         case .nameOnly, .hidden: return false
         }
     }
@@ -364,8 +364,8 @@ struct TeleprompterView: View {
     private func effectiveShowName(_ placement: ChordPlacement, chord: ChordDiagram?) -> Bool {
         guard let chord, !chord.name.isEmpty else { return false }
         switch song.chordDisplayMode {
-        case .custom:               return placement.showName
-        case .nameOnly:             return true
+        case .custom: return placement.showName
+        case .nameOnly: return true
         case .diagramOnly, .hidden: return false
         }
     }

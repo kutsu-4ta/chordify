@@ -6,7 +6,7 @@ import SwiftData
     var name: String
     var fingering: ChordFingering
     var isGlobal: Bool
-    var folder: String      // "" = フォルダなし
+    var folder: String // "" = フォルダなし
     var createdAt: Date
     var ownerSong: Song?
 
@@ -17,12 +17,12 @@ import SwiftData
         folder: String = "",
         ownerSong: Song? = nil
     ) {
-        self.id = UUID()
+        id = UUID()
         self.name = name
         self.fingering = fingering
         self.isGlobal = isGlobal
         self.folder = folder
-        self.createdAt = Date()
+        createdAt = Date()
         self.ownerSong = ownerSong
     }
 }

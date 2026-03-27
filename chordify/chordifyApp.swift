@@ -1,24 +1,23 @@
-import SwiftUI
-import SwiftData
 import AVFoundation
+import SwiftData
+import SwiftUI
 
 @main
 struct chordifyApp: App {
-
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     init() {
         #if os(iOS)
-        do {
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .default,
-                options: [.mixWithOthers]
-            )
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            print("AVAudioSession setup failed: \(error)")
-        }
+            do {
+                try AVAudioSession.sharedInstance().setCategory(
+                    .playback,
+                    mode: .default,
+                    options: [.mixWithOthers]
+                )
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("AVAudioSession setup failed: \(error)")
+            }
         #endif
     }
 
