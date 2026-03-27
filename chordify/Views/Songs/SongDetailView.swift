@@ -583,24 +583,9 @@ private struct SongSettingsSheet: View {
         NavigationStack {
             Form {
                 songInfoSection
-                Section("この曲の録音") {
-                                    if recordManager.recordings.isEmpty {
-                                        Text("録音はまだありません")
-                                            .font(.caption).foregroundColor(.secondary)
-                                    } else {
-                                        ForEach(recordManager.recordings, id: \.self) { url in
-                                            HStack {
-                                                // ファイル名からIDとハイフンを除いて表示（見やすくするため）
-                                                Text(displayFileName(url: url))
-                                                    .font(.subheadline)
-                                                Spacer()
-                                                Image(systemName: "play.circle")
-                                            }
-                                        }
-                                    }
-                                }
                 scrollSection
                 prompterSection
+                recordingsSection
                 memoSection
             }
             .navigationTitle("曲の設定")
@@ -666,7 +651,7 @@ private struct SongSettingsSheet: View {
     }
 
     private var recordingsSection: some View {
-        Section("録音済みファイル") {
+        Section("この曲の録音") {
             if recordManager.recordings.isEmpty {
                 Text("録音データはありません")
                     .font(.caption)
@@ -675,18 +660,28 @@ private struct SongSettingsSheet: View {
                 ForEach(recordManager.recordings, id: \.self) { url in
                     HStack {
                         VStack(alignment: .leading) {
-                            Text(url.lastPathComponent)
+                            Text(displayFileName(url: url))
                                 .font(.subheadline)
                                 .lineLimit(1)
                             Text(fileDate(url: url))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
+                        
                         Spacer()
-
-                        Image(systemName: "play.circle")
-                            .foregroundColor(.blue)
+                        
+                        Image(systemName: recordManager.playingURL == url ? "stop.circle.fill" : "play.circle")
+                            .font(.title2)
+                            .foregroundColor(recordManager.playingURL == url ? .red : .blue)
                     }
+                    // ここがポイント：透明な部分も含めてタップに反応させる
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        recordManager.togglePlayback(for: url)
+                    }
+                }
+                .onDelete { offsets in
+                    recordManager.deleteRecording(at: offsets, for: song.id)
                 }
             }
         }

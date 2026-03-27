@@ -3,9 +3,11 @@
 
     class RecordManager: NSObject, ObservableObject {
         private var audioRecorder: AVAudioRecorder?
+        private var audioPlayer: AVAudioPlayer?
         @Published var isRecording = false
         @Published var recordings: [URL] = []
-
+        @Published var playingURL: URL?
+        
         func start(songID: UUID, songTitle: String){
             // オーディオセッションの設定（録音可能にする）
             let session = AVAudioSession.sharedInstance()
@@ -40,6 +42,24 @@
                 print("録音の開始に失敗しました: \(error)")
             }
         }
+        
+        private func generateFileName(songID: UUID, songTitle: String) -> String {
+                // 安全な曲名の抽出（英数字以外を排除し、連続する記号をまとめる）
+                let safeTitle = songTitle
+                    .components(separatedBy: CharacterSet.alphanumerics.inverted)
+                    .filter { !$0.isEmpty }
+                    .joined(separator: "_")
+                
+                let finalTitle = safeTitle.isEmpty ? "no_title" : safeTitle
+
+                // 日時文字列の生成
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
+                let dateString = formatter.string(from: Date())
+
+                // 結合して拡張子を付与
+                return "\(songID.uuidString)-\(finalTitle)-\(dateString).m4a"
+            }
 
         func stop(songID: UUID) {
             audioRecorder?.stop()
@@ -61,21 +81,61 @@
             }
         }
         
-        private func generateFileName(songID: UUID, songTitle: String) -> String {
-                // 安全な曲名の抽出（英数字以外を排除し、連続する記号をまとめる）
-                let safeTitle = songTitle
-                    .components(separatedBy: CharacterSet.alphanumerics.inverted)
-                    .filter { !$0.isEmpty }
-                    .joined(separator: "_")
-                
-                let finalTitle = safeTitle.isEmpty ? "no_title" : safeTitle
-
-                // 日時文字列の生成
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd-HH-mm-ss"
-                let dateString = formatter.string(from: Date())
-
-                // 結合して拡張子を付与
-                return "\(songID.uuidString)-\(finalTitle)-\(dateString).m4a"
+        func deleteRecording(at offsets: IndexSet, for songID: UUID) {
+            offsets.forEach { index in
+                let url = recordings[index]
+                do {
+                    // 再生中なら止める
+                    if playingURL == url {
+                        stopPlayback()
+                    }
+                    // 物理ファイルを削除
+                    try FileManager.default.removeItem(at: url)
+                } catch {
+                    print("ファイル削除失敗: \(error)")
+                }
             }
+            // リストを再取得してUIを更新
+            fetchRecordings(for: songID)
+        }
+        
+        func togglePlayback(for url: URL) {
+            print("toggle playback")
+            if playingURL == url {
+                stopPlayback()
+            } else {
+                startPlayback(url: url)
+            }
+        }
+
+        private func startPlayback(url: URL) {
+            stopPlayback()
+            
+            do {
+
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playback, mode: .default)
+                try session.setActive(true)
+
+                audioPlayer = try AVAudioPlayer(contentsOf: url)
+                audioPlayer?.delegate = self // 終了検知用
+                audioPlayer?.play()
+                playingURL = url
+            } catch {
+                print("再生失敗: \(error)")
+            }
+        }
+
+        func stopPlayback() {
+            audioPlayer?.stop()
+            playingURL = nil
+        }
+    }
+
+    extension RecordManager: AVAudioPlayerDelegate {
+        func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+            DispatchQueue.main.async {
+                self.playingURL = nil
+            }
+        }
     }
