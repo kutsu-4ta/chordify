@@ -10,6 +10,7 @@ import Observation
     var scrollOffset: CGFloat = 0
     var speedMultiplier: Double = 1.0
     var clickEnabled: Bool
+    var recordingEnabled: Bool
 
     /// コンテンツ全体の高さ（ビューから設定）
     var contentHeight: CGFloat = 0
@@ -34,6 +35,8 @@ import Observation
     private let audioEngine = AVAudioEngine()
     private let clickPlayer = AVAudioPlayerNode()
     private var clickBuffer: AVAudioPCMBuffer?
+    
+    let recorderManager = RecordManager()
 
     /// タイマー間隔（秒）
     private static let timerInterval: Double = 0.5
@@ -41,6 +44,7 @@ import Observation
     init(song: Song) {
         self.song = song
         self.clickEnabled = song.isClickEnabled
+        self.recordingEnabled = song.isRecordingEnabled
         setupAudioEngine()
     }
 
@@ -194,6 +198,9 @@ import Observation
         scrollTimer = nil
     }
 
+    
+    // MARK: - クリック音
+
     private func startClickTimer() {
         stopClickTimer()
         guard clickInterval > 0 else { return }
@@ -218,5 +225,22 @@ import Observation
             else { stopClickTimer() }
         }
     }
+    
+    // MARK: - 録音
+
+    func toggleRecording() {
+        recordingEnabled.toggle()
+        song.isRecordingEnabled = recordingEnabled
+        recordingEnabled ? startRecording() : stopRecording()
+    }
+
+    private func startRecording() {
+        recorderManager.start(songID: song.id, songTitle: song.title)
+    }
+
+    private func stopRecording() {
+        recorderManager.stop(songID: song.id)
+    }
+
 }
 

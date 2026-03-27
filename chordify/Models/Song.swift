@@ -42,6 +42,7 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
     /// スクロール速度（pt/秒）
     var scrollSpeed: Double
     var isClickEnabled: Bool
+    var isRecordingEnabled: Bool
     var createdAt: Date
 
     /// パフォーマンス画面のコード表示モード
@@ -77,13 +78,15 @@ enum ChordDisplayMode: String, Codable, CaseIterable {
         title: String,
         bpm: Int = 120,
         scrollSpeed: Double = 50.0,
-        isClickEnabled: Bool = false
+        isClickEnabled: Bool = false,
+        isRecordingEnabled: Bool = false
     ) {
         self.id = UUID()
         self.title = title
         self.bpm = bpm
         self.scrollSpeed = scrollSpeed
         self.isClickEnabled = isClickEnabled
+        self.isRecordingEnabled = isRecordingEnabled
         self.createdAt = Date()
         self.chordDisplayMode = .custom
         self.capo = 0

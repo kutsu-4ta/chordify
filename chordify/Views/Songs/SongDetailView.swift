@@ -52,8 +52,41 @@ struct SongDetailView: View {
                     }
                 }
             }
-
+            
             if !isEditing && !isTeleprompter {
+                bottomToolbar
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SongSettingsSheet(song: song)
+        }
+        .confirmationDialog(
+            "セクションを削除しますか？",
+            isPresented: Binding(get: { sectionToDelete != nil },
+                                 set: { if !$0 { sectionToDelete = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) {
+                if let s = sectionToDelete { modelContext.delete(s) }
+                sectionToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) { sectionToDelete = nil }
+        }
+        .onDisappear {
+            exitTeleprompterIfNeeded()
+            viewModel.pause()
+            if viewModel.recordingEnabled {
+                viewModel.toggleRecording()
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active { exitTeleprompterIfNeeded() }
+        }
+    }
+
+    // MARK: - ツールバー
+    
+    private var bottomToolbar: some ToolbarContent {
                 ToolbarItemGroup(placement: .bottomBar) {
                     // 自動スクロール
                     Button { viewModel.toggle() } label: {
@@ -68,6 +101,15 @@ struct SongDetailView: View {
                         Image(systemName: viewModel.clickEnabled ? "metronome.fill" : "metronome")
                             .font(.title2)
                             .foregroundColor(viewModel.clickEnabled ? .accentColor : .primary)
+                    }
+
+                    Spacer()
+                    
+                    // 録音
+                    Button { viewModel.toggleRecording() } label: {
+                        Image(systemName: viewModel.recordingEnabled ? "record.circle.fill" : "record.circle")
+                            .font(.title2)
+                            .foregroundColor(viewModel.recordingEnabled ? .red : .primary)
                     }
 
                     Spacer()
@@ -94,34 +136,10 @@ struct SongDetailView: View {
                     Button { showSettings = true } label: {
                         Image(systemName: "gearshape")
                             .font(.title2)
-                    }
                 }
-            }
-        }
-        .sheet(isPresented: $showSettings) {
-            SongSettingsSheet(song: song)
-        }
-        .confirmationDialog(
-            "セクションを削除しますか？",
-            isPresented: Binding(get: { sectionToDelete != nil },
-                                 set: { if !$0 { sectionToDelete = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("削除", role: .destructive) {
-                if let s = sectionToDelete { modelContext.delete(s) }
-                sectionToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) { sectionToDelete = nil }
-        }
-        .onDisappear {
-            exitTeleprompterIfNeeded()
-            viewModel.pause()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { exitTeleprompterIfNeeded() }
         }
     }
-
+    
     // MARK: - テレプロンプター制御
 
     private var teleprompterView: some View {
@@ -558,11 +576,29 @@ private struct SongSettingsSheet: View {
     @Bindable var song: Song
     @Environment(\.dismiss) var dismiss
     @State private var bpmText = ""
+    
+    @StateObject private var recordManager = RecordManager()
 
     var body: some View {
         NavigationStack {
             Form {
                 songInfoSection
+                Section("この曲の録音") {
+                                    if recordManager.recordings.isEmpty {
+                                        Text("録音はまだありません")
+                                            .font(.caption).foregroundColor(.secondary)
+                                    } else {
+                                        ForEach(recordManager.recordings, id: \.self) { url in
+                                            HStack {
+                                                // ファイル名からIDとハイフンを除いて表示（見やすくするため）
+                                                Text(displayFileName(url: url))
+                                                    .font(.subheadline)
+                                                Spacer()
+                                                Image(systemName: "play.circle")
+                                            }
+                                        }
+                                    }
+                                }
                 scrollSection
                 prompterSection
                 memoSection
@@ -574,7 +610,10 @@ private struct SongSettingsSheet: View {
                     Button("完了") { dismiss() }
                 }
             }
-            .onAppear { bpmText = "\(song.bpm)" }
+            .onAppear {
+                bpmText = "\(song.bpm)"
+                recordManager.fetchRecordings(for: song.id)
+            }
         }
     }
 
@@ -624,6 +663,44 @@ private struct SongSettingsSheet: View {
             Text("数値が大きいほど速くスクロールします")
                 .font(.caption)
         }
+    }
+
+    private var recordingsSection: some View {
+        Section("録音済みファイル") {
+            if recordManager.recordings.isEmpty {
+                Text("録音データはありません")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(recordManager.recordings, id: \.self) { url in
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(url.lastPathComponent)
+                                .font(.subheadline)
+                                .lineLimit(1)
+                            Text(fileDate(url: url))
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+
+                        Image(systemName: "play.circle")
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func displayFileName(url: URL) -> String {
+            let name = url.lastPathComponent
+            return name.replacingOccurrences(of: "\(song.id.uuidString)-", with: "")
+        }
+    
+    private func fileDate(url: URL) -> String {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        let date = attributes?[.creationDate] as? Date ?? Date()
+        return date.formatted(date: .numeric, time: .shortened)
     }
 
     private var prompterSection: some View {
@@ -683,3 +760,4 @@ private struct ChordPreviewSheet: View {
         .presentationDetents([.medium])
     }
 }
+
